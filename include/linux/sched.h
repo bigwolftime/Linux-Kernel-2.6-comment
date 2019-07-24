@@ -202,8 +202,8 @@ extern unsigned long nr_iowait(void);
 #define EXIT_ZOMBIE		16
 
 /**
- * 在父进程调用wait4后，删除前，为避免其他进程在同一进程上也执行wait4调用
- * 将其状态由EXIT_ZOMBIE转为EXIT_DEAD，即僵死撤销状态。
+ * 在父进程调用 wait4 后，删除前，为避免其他进程在同一进程上也执行 wait4 调用
+ * 将其状态由 EXIT_ZOMBIE 转为 EXIT_DEAD，即僵死撤销状态。
  */
 #define EXIT_DEAD		32
 
@@ -822,6 +822,12 @@ int set_current_groups(struct group_info *group_info);
 struct audit_context;		/* See audit.c */
 struct mempolicy;
 
+/**
+ * Linux 创建进程与其他操作系统不同：
+ * 1. 其他：开辟新空间 -> 读入可执行文件 -> 执行；
+ * 2. Unix / Linux：首先 fork() 出一个子进程，子与父仅区别于 pid、ppid 和一些资源；
+ * 	  exec() 负责读取可执行文件并执行。
+ */
 //进程描述
 //双向链表中的实体信息
 struct task_struct {
@@ -973,6 +979,7 @@ struct task_struct {
 	 * 通过这种不限级的父子查找关系，可以从一个进程寻找到任意的进程
 	 */
 	struct list_head children;	/* list of my children */
+
 	/**
 	 * 指向兄弟进程链表的下一个元素或前一个元素的指针。
 	 */
@@ -1483,6 +1490,10 @@ extern void wait_task_inactive(task_t * p);
 	add_parent(p, (p)->parent);				\
 	} while (0)
 
+/**
+ * 根据结构指针，拿到前一个或后一个进程的信息
+ * 最后达到遍历进程的目的，但完全遍历的操作代价较大。
+ */
 #define next_task(p)	list_entry((p)->tasks.next, struct task_struct, tasks)
 #define prev_task(p)	list_entry((p)->tasks.prev, struct task_struct, tasks)
 
