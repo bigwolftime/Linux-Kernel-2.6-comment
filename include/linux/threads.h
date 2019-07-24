@@ -6,6 +6,7 @@
 /*
  * The default limit for the nr of threads is now in
  * /proc/sys/kernel/threads-max.
+ * 操作 /proc/sys/kernel/threads-max 来修改默认值
  */
  
 /*
@@ -22,8 +23,11 @@
 
 #define MIN_THREADS_LEFT_FOR_ROOT 4
 
+
+//进程默认值定义在此
 /*
  * This controls the default maximum pid allocated to a process
+ * 0x8000(16) = 32768(10)
  */
 #define PID_MAX_DEFAULT 0x8000
 

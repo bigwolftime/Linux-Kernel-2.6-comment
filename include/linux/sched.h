@@ -158,38 +158,56 @@ extern unsigned long nr_iowait(void);
 
 #include <asm/processor.h>
 
+
+//进程的状态
+
 /**
- * 进程要么在CPU上执行，要么准备执行。
+ * 进程要么已经在CPU上执行，要么在运行队列中准备执行。
+ * 进程在用户空间的状态
  */
 #define TASK_RUNNING		0
+
 /**
  * 可中断的等待状态。
+ * 可能正在睡眠(阻塞)，一旦等待条件达成，内核会将状态置为 TASK_RUNNING
  */
 #define TASK_INTERRUPTIBLE	1
+
 /**
  * 不可中断的等待状态。
  * 这种情况很少，但是有时也有用：比如进程打开一个设备文件，其相应的驱动程序在探测硬件设备时，就是这种状态。
  * 在探测完成前，设备驱动程序如果被中断，那么硬件设备的状态可能会处于不可预知状态。
+ * 
+ * 执行 ps 命令时，看到标记为 D 状态的进程但不能被杀死的原因。此状态的任务不会响应中断信号，即不会接接收
+ * SIGKILL 信号。即使有办法终止也不建议，因为进程可能在执行重要操作，甚至持有信号量。
  */
 #define TASK_UNINTERRUPTIBLE	2
+
 /**
- * 暂停状态。当收到SIGSTOP,SIGTSTP,SIGTTIN或者SIGTTOU信号后，会进入此状态。
+ * 停止状态。当收到 SIGSTOP, SIGTSTP, SIGTTIN 或者 SIGTTOU 信号后，会进入此状态。
+ * 在调试期间收到任何信号也会进入此状态。
  */
 #define TASK_STOPPED		4
+
 /**
  * 被跟踪状态。当进程被另外一个进程监控时，任何信号都可以把这个置于该
  */
 #define TASK_TRACED		8
+
 /**
- * 僵死状态。进程的执行被终止，但是，父进程还没有调用完wait4和waitpid来返回有关
- * 死亡进程的信息。在此时，内核不能释放相关数据结构，因为父进程可能还需要它。
+ * 僵死状态。进程的执行被终止，但是，父进程还没有调用完 wait4 和 waitpid 来返回有关
+ * 死亡进程的信息。
+ * 在此时，内核不能释放相关数据结构，因为父进程可能还需要它。
  */
 #define EXIT_ZOMBIE		16
+
 /**
  * 在父进程调用wait4后，删除前，为避免其他进程在同一进程上也执行wait4调用
  * 将其状态由EXIT_ZOMBIE转为EXIT_DEAD，即僵死撤销状态。
  */
 #define EXIT_DEAD		32
+
+
 
 #define __set_task_state(tsk, state_value)		\
 	do { (tsk)->state = (state_value); } while (0)
@@ -802,6 +820,8 @@ int set_current_groups(struct group_info *group_info);
 struct audit_context;		/* See audit.c */
 struct mempolicy;
 
+//进程描述
+//双向链表中的实体信息
 struct task_struct {
 	/**
 	 * 进程状态。
@@ -904,6 +924,13 @@ struct task_struct {
 	unsigned did_exec:1;
 	/**
 	 * 进程PID
+	 * pid_t 为隐含类型，即数据类型的物理表示是未知或不相关的
+	 * 这里实际上就是一个 int 类型
+	 * 
+	 * 为了与老版本兼容，最大值为: 32768
+	 * 但是不绝对，详见 linux/threads.h
+	 * 
+	 * 此值实际上就是：允许系统同时存在的最大进程数目
 	 */
 	pid_t pid;
 	/**

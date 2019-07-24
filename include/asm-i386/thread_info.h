@@ -25,7 +25,10 @@
  */
 #ifndef __ASSEMBLY__
 
+//进程基本信息
 struct thread_info {
+
+	//指向进程描述符的指针
 	struct task_struct	*task;		/* main task structure */
 	struct exec_domain	*exec_domain;	/* execution domain */
 	/**
