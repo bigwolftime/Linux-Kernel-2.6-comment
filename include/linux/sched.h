@@ -208,20 +208,22 @@ extern unsigned long nr_iowait(void);
 #define EXIT_DEAD		32
 
 
-
+/**
+ * 设置进程状态。同时会加上内存屏障(一般 SMP 系统有必要)。
+ */
 #define __set_task_state(tsk, state_value)		\
 	do { (tsk)->state = (state_value); } while (0)
-/**
- * 设置进程状态。同时会加上内存屏障。
- */
+
 #define set_task_state(tsk, state_value)		\
 	set_mb((tsk)->state, (state_value))
 
 /**
  * 设置当前进程状态。同时会加上内存屏障。
+ * 与上面含义等同
  */
 #define __set_current_state(state_value)			\
 	do { current->state = (state_value); } while (0)
+
 #define set_current_state(state_value)		\
 	set_mb(current->state, (state_value))
 
@@ -937,6 +939,7 @@ struct task_struct {
 	 * 线程组领头线程的PID。
 	 */
 	pid_t tgid;
+
 	/* 
 	 * pointers to (original) parent process, youngest child, younger sibling,
 	 * older sibling, respectively.  (p->father can be replaced with 
@@ -949,17 +952,25 @@ struct task_struct {
 	 */
 	struct task_struct *real_parent; /* real parent process (when being debugged) */
 	/**
+	 * 程序由用户态进入内核态只能通过: 系统调用或者异常.
+	 * 
+	 * 所有的进程都是 pid = 1 的 init 进程的后代，内核在启动的最后阶段启动 init 进程，
+	 * init 进程读取初始化脚本并执行相关的程序，完成启动。
+	 * 
 	 * 指向进程的当前父进程。这种进程的子进程终止时，必须向父进程发信号。
 	 * 它的值通常与real_parent一致。
-	 * 但偶尔也可以不同。例如：当另一个进程发出监控进程的ptrace系统调用请求时。
+	 * 但偶尔也可以不同。例如：当另一个进程发出监控进程的 ptrace 系统调用请求时。
 	 */
 	struct task_struct *parent;	/* parent process */
+
 	/*
 	 * children/sibling forms the list of my children plus the
 	 * tasks I'm ptracing.
 	 */
 	/**
 	 * 链表头部。链表指向的所有元素都是进程创建的子进程。
+	 * 
+	 * 通过这种不限级的父子查找关系，可以从一个进程寻找到任意的进程
 	 */
 	struct list_head children;	/* list of my children */
 	/**
