@@ -722,6 +722,10 @@ asmlinkage int sys_clone(struct pt_regs regs)
  * done by calling the "clone()" system call directly, you
  * do not have enough call-clobbered registers to hold all
  * the information you need.
+ * 
+ * sys_vfork 实际调用的是 do_fork，但传参不同，父进程被阻塞，直到子进程退出或者执行 exec()
+ * 不复制父进程的页表项，不会向地址空间写数据
+ * 在并未使用写时复制机制之前，vfork 比较有意义，但若 fork 支持父进程页表copy选项，那么vfork就没有用武之地了
  */
 asmlinkage int sys_vfork(struct pt_regs regs)
 {

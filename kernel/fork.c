@@ -137,6 +137,7 @@ void __init fork_init(unsigned long mempages)
 
 /**
  * 为子进程获取进程描述符。
+ * 创建内核栈、thread_info、task_struct，这些与父进程相同
  */
 static struct task_struct *dup_task_struct(struct task_struct *orig)
 {
@@ -942,6 +943,7 @@ static task_t *copy_process(unsigned long clone_flags,
 	 * 如果是，则返回错误码。当然，有root权限除外。
 	 * p->user表示进程的拥有者，p->user->processes表示进程拥有者当前进程数
 	 * xie.baoyou注：此处比较是用>=而不是>
+	 * 检查当前用户所拥有的线程数没有超出分配限制.
 	 */
 	retval = -EAGAIN;
 	if (atomic_read(&p->user->processes) >=
@@ -989,6 +991,7 @@ static task_t *copy_process(unsigned long clone_flags,
 
 	/**
 	 * 设置几个与进程状态相关的关键字段。
+	 * 相当于进程数据的初始化工作
 	 */
 
 	/**
@@ -1078,21 +1081,27 @@ static task_t *copy_process(unsigned long clone_flags,
 	 * copy_mm，copy_keys，copy_namespace创建新的数据结构，并把父进程相应数据结构的值复制到新数据结构中。
 	 * 除非clone_flags参数指出它们有不同的值。
 	 */
+	//根据 clone_flag 对父进程的资源进行 共享 / 复制
 	if ((retval = copy_semundo(clone_flags, p)))
 		goto bad_fork_cleanup_audit;
 	if ((retval = copy_files(clone_flags, p)))
+		//文件
 		goto bad_fork_cleanup_semundo;
 	if ((retval = copy_fs(clone_flags, p)))
+		//文件系统信息
 		goto bad_fork_cleanup_files;
 	if ((retval = copy_sighand(clone_flags, p)))
 		goto bad_fork_cleanup_fs;
 	if ((retval = copy_signal(clone_flags, p)))
+		//信号处理函数
 		goto bad_fork_cleanup_sighand;
 	if ((retval = copy_mm(clone_flags, p)))
+		//进程地址空间
 		goto bad_fork_cleanup_signal;
 	if ((retval = copy_keys(clone_flags, p)))
 		goto bad_fork_cleanup_mm;
 	if ((retval = copy_namespace(clone_flags, p)))
+		//进程命名空间
 		goto bad_fork_cleanup_keys;
 	/**
 	 * 调用copy_thread，用发出clone系统调用时CPU寄存器的值（它们保存在父进程的内核栈中）
@@ -1147,7 +1156,7 @@ static task_t *copy_process(unsigned long clone_flags,
 	/**
 	 * 调用sched_fork完成对新进程调度程序数据结构的初始化。
 	 * 该函数把新进程的状态置为TASK_RUNNING，并把thread_info结构的preempt_count字段设置为1，
-	 * 从而禁止抢占。
+	 * 从而禁止抢占。父进程总是有意让子进程优先，但并非总能如此。
 	 * 此外，为了保证公平调度，父子进程共享父进程的时间片。
 	 */
 	sched_fork(p);
@@ -1349,12 +1358,20 @@ static inline int fork_traceflag (unsigned clone_flags)
  * it and waits for it to finish using the VM if required.
  */
 /**
- * 负责处理clone,fork,vfork系统调用。
- * clone_flags-与clone的flag参数相同
- * stack_start-与clone的child_stack相同
- * regs-指向通用寄存器的值。是在从用户态切换到内核态时被保存到内核态堆栈中的。
- * stack_size-未使用,总是为0
- * parent_tidptr,child_tidptr-clone中对应参数ptid,ctid相同
+ * 负责处理 clone, fork, vfork 系统调用。
+ * clone_flags - 与 clone 的 flag 参数相同
+ * stack_start - 与 clone 的 child_stack 相同
+ * regs - 指向通用寄存器的值。是在从用户态切换到内核态时被保存到内核态堆栈中的。
+ * stack_size - 未使用,总是为0
+ * parent_tidptr,child_tidptr - clone 中对应参数 ptid, ctid 相同
+ * 
+ * 进程创建的特点：
+ * 1. 写时 copy：传统的 fork() 直接将父进程的资源完全 copy 给子进程，效率较低，若子进程
+ * 	执行新的映像，则之前的 copy 都没用了。
+ * 	  一般情况并不复制整个进制的地址空间，而是父子以只读的方式共享一块内存，只有当子进程有写需求，才会
+ *  copy 一个副本。实际的开销就是：复制父进程的页表给子进程以及创建唯一的进程描述符。
+ * 2. fork()：通过一系列参数指定父子进程需共享的资源，通过系统调用 clone()，然后调用 do_fork()
+ * 
  */
 long do_fork(unsigned long clone_flags,
 	      unsigned long stack_start,
@@ -1366,7 +1383,7 @@ long do_fork(unsigned long clone_flags,
 	struct task_struct *p;
 	int trace = 0;
 	/**
-	 * 通过查找pidmap_array位图,为子进程分配新的pid参数.
+	 * 通过查找 pidmap_array 位图, 为子进程分配新的 pid 参数.
 	 */
 	long pid = alloc_pidmap();
 

@@ -606,6 +606,8 @@ asmlinkage long sys_clone(unsigned long clone_flags, unsigned long newsp, void _
  * done by calling the "clone()" system call directly, you
  * do not have enough call-clobbered registers to hold all
  * the information you need.
+ * 
+ * 
  */
 asmlinkage long sys_vfork(struct pt_regs *regs)
 {
