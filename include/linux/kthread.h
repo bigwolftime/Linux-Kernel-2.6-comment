@@ -4,6 +4,13 @@
 #include <linux/err.h>
 #include <linux/sched.h>
 
+
+/**
+ * 内核线程相关
+ * 内核线程只能由其他内核线程创建，一般执行些后台操作，只在内核空间运行，没有独立的地址空间(mm 指针为 null)
+ * 可以被调度和抢占。例如：ps -ef 可以看到许多内核线程
+ */
+
 /**
  * kthread_create: create a kthread.
  * @threadfn: the function to run until signal_pending(current).
@@ -39,6 +46,7 @@ struct task_struct *kthread_create(int (*threadfn)(void *data),
 ({									   \
 	struct task_struct *__k						   \
 		= kthread_create(threadfn, data, namefmt, ## __VA_ARGS__); \
+	//新创建的进程处于不可运行状态，需要调用 wake_up_process() 显式地唤醒
 	if (!IS_ERR(__k))						   \
 		wake_up_process(__k);					   \
 	__k;								   \

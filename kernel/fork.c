@@ -877,6 +877,10 @@ asmlinkage long sys_set_tid_address(int __user *tidptr)
 /**
  * 创建进程描述符以及子进程执行所需要的所有其他数据结构
  * 它的参数与do_fork相同。外加子进程的PID。
+ * 
+ * 另外，Linux 内核对于进程、线程并没有区别对待，所有线程都当做是
+ * 进程来实现，也没有对线程定义特别的调度算法或者数据结构。
+ * 但在 Windows 系统中，差异很大，都为其实现了专门的机制。
  */
 static task_t *copy_process(unsigned long clone_flags,
 				 unsigned long stack_start,
