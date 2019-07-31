@@ -915,6 +915,7 @@ fastcall NORET_TYPE void do_exit(long code)
 	tsk->flags |= PF_EXITING;
 	/**
 	 * 从动态定时器队列中删除进程描述符。
+	 * 删除任一内核定时器，根据返回结果，确保没有定时器排队，也没有定时处理程序运行。
 	 */
 	del_timer_sync(&tsk->real_timer);
 
