@@ -54,6 +54,8 @@ static void __unhash_process(struct task_struct *p)
 
 /**
  * 释放进程描述符。如果进程已经是僵死状态，就会回收它占用的RAM。
+ * 在执行了 do_exit 后，线程僵死不能执行，但是进程描述符还存在，父进程还可以获取到子进程的信息，
+ * 当不再需要的时候，通过 release_task 释放。
  */
 void release_task(struct task_struct * p)
 {
@@ -132,7 +134,7 @@ repeat:
 	/**
 	 * 递减进程描述符的使用计数器。如果计数器变成0,则终止所有残留的对进程的引用。
 	 *     递减进程所有者的user_struct数据结构的使用计数器。如果计数为0，就释放该结构。
-	 *     释放进程描述符以及thread_info描述符和内核态堆栈所占用的内存区域。
+	 *     释放进程描述符、thread_info描述符、内核态堆栈所占用的内存区域。
 	 */
 	put_task_struct(p);
 
@@ -658,6 +660,8 @@ static inline void reparent_thread(task_t *p, task_t *father, int traced)
  * Try to give them to another thread in our thread
  * group, and if no such member exists, give it to
  * the global child reaper process (ie "init")
+ * 
+ * 自己即将被终结，则需为自己的子进程寻找新的父
  */
 static inline void forget_original_parent(struct task_struct * father,
 					  struct list_head *to_release)
@@ -680,6 +684,8 @@ static inline void forget_original_parent(struct task_struct * father,
 	 * - in our ptraced child list
 	 *
 	 * Search them and reparent children.
+	 * 
+	 * 给每一个子进程设置一个新的父进程
 	 */
 	list_for_each_safe(_p, _n, &father->children) {
 		int ptrace;
@@ -768,7 +774,7 @@ static void exit_notify(struct task_struct *tsk)
 	INIT_LIST_HEAD(&ptrace_dead);
 	/**
 	 * 更新父进程和子进程的亲属关系
-	 * 对不起，你们的父亲死掉了，另外选一个继父吧。
+	 * 即如果自己有子进程，但自己即将被终结，此时通知子进程寻找其他父进程
 	 * 如果线程组中还有运行的进程，就让其中子线程作父进程。所谓：长兄如父，是也。
 	 * 如果线程组中没有其他兄弟进程，就让子进程成为init的子进程。
 	 */
@@ -924,6 +930,7 @@ fastcall NORET_TYPE void do_exit(long code)
 				current->comm, current->pid,
 				preempt_count());
 
+	//输出记账信息 
 	acct_update_integrals();
 	update_mem_hiwater();
 	group_dead = atomic_dec_and_test(&tsk->signal->live);
@@ -976,6 +983,7 @@ fastcall NORET_TYPE void do_exit(long code)
 	tsk->exit_code = code;
 	/**
 	 * exit_notify执行比较复杂的操作，更新了很多内核数据结构
+	 * 通知相关进程
 	 */
 	exit_notify(tsk);
 #ifdef CONFIG_NUMA
